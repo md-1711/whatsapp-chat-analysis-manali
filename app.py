@@ -11,6 +11,22 @@ if uploaded_file is not None:
     data = bytes_data.decode("utf-8")
     df = preprocessor.preprocess(data)
 
+        # Quick Summary Card (New Feature)
+    st.title("📌 Chat Summary")
+
+    total_messages = df.shape[0]
+    total_words = df['message'].apply(lambda x: len(x.split())).sum()
+    total_emojis = df['message'].apply(lambda x: sum([1 for c in x if c in utils.EMOJI_SET])).sum()
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Messages", total_messages)
+    with col2:
+        st.metric("Total Words", total_words)
+    with col3:
+        st.metric("Total Emojis", total_emojis)
+
+
     # fetch unique users
     user_list = df['user'].unique().tolist()
     user_list.remove('group_notification')
