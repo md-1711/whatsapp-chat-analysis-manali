@@ -1,27 +1,27 @@
-from urlextract import URLExtract
-from wordcloud import WordCloud
 import pandas as pd
 from collections import Counter
+from wordcloud import WordCloud
 import emoji
-from textblob import TextBlob
+from urlextract import URLExtract
 
+# Extractor for URLs
 extract = URLExtract()
 
-# renamed from fetch_stats
+# Set of all emojis (for summary card)
+EMOJI_SET = set(emoji.EMOJI_DATA.keys())
+
+
 def generate_stats(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     num_messages = df.shape[0]
-
     words = []
     for message in df['message']:
         words.extend(message.split())
 
-    # fetch number of media messages
     num_media_messages = df[df['message'] == '<Media omitted>\n'].shape[0]
 
-    # fetch links
     links = []
     for message in df['message']:
         links.extend(extract.find_urls(message))
@@ -29,54 +29,8 @@ def generate_stats(selected_user, df):
     return num_messages, len(words), num_media_messages, len(links)
 
 
-# renamed from most_busy_users
-def top_active_users(df):
-    x = df['user'].value_counts().head()
-    df = round((df['user'].value_counts() / df.shape[0]) * 100, 2).reset_index().rename(
-        columns={'index': 'name', 'user': 'percent'}
-    )
-    return x, df
-
-
-def create_wordcloud(selected_user, df):
-    if selected_user != "Overall":
-        df = df[df['user'] == selected_user]
-
-    wc = WordCloud(width=500, height=500, min_font_size=10, background_color='white')
-    df_wc = wc.generate(df['message'].str.cat(sep=" "))
-    return df_wc
-
-
-def most_common_words(selected_user, df):
-    if selected_user != "Overall":
-        df = df[df['user'] == selected_user]
-
-    temp = df[df['user'] != 'group_notification']
-    temp = temp[temp['message'] != '<Media omitted>\n']
-
-    words = []
-    for message in temp['message']:
-        words.extend(message.lower().split())
-
-    most_common_df = pd.DataFrame(Counter(words).most_common(20))
-    return most_common_df
-
-
-def emoji_helper(selected_user, df):
-    if selected_user != "Overall":
-        df = df[df['user'] == selected_user]
-
-    emojis = []
-    for message in df['message']:
-        emojis.extend([c for c in message if c in emoji.EMOJI_DATA])
-
-    emoji_df = pd.DataFrame(Counter(emojis).most_common(len(Counter(emojis))))
-    return emoji_df
-
-
-# renamed from monthly_timeline
 def monthly_activity_timeline(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     timeline = df.groupby(['year', 'month_num', 'month']).count()['message'].reset_index()
@@ -86,11 +40,12 @@ def monthly_activity_timeline(selected_user, df):
         time.append(timeline['month'][i] + "-" + str(timeline['year'][i]))
 
     timeline['time'] = time
+
     return timeline
 
 
 def daily_timeline(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     daily_timeline = df.groupby('only_date').count()['message'].reset_index()
@@ -99,37 +54,86 @@ def daily_timeline(selected_user, df):
 
 
 def week_activity_map(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
-
     return df['day_name'].value_counts()
 
 
 def month_activity_map(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
-
     return df['month'].value_counts()
 
 
 def activity_heatmap(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
-
     user_heatmap = df.pivot_table(index='day_name', columns='period', values='message', aggfunc='count').fillna(0)
     return user_heatmap
 
 
-def sentiment_analysis(selected_user, df):
-    if selected_user != "Overall":
+def top_active_users(df):
+    x = df['user'].value_counts().head()
+    new_df = round((df['user'].value_counts() / df.shape[0]) * 100, 2).reset_index().rename(
+        columns={'index': 'name', 'user': 'percent'}
+    )
+    return x, new_df
+
+
+def create_wordcloud(selected_user, df):
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
-    sentiments = df['message'].apply(lambda msg: TextBlob(msg).sentiment.polarity)
+    wc = WordCloud(width=500, height=500, min_font_size=10, background_color='white')
+    df_wc = wc.generate(df['message'].str.cat(sep=" "))
+    return df_wc
+
+
+def most_common_words(selected_user, df):
+    f = open('stop_hinglish.txt', 'r')
+    stop_words = f.read()
+
+    if selected_user != 'Overall':
+        df = df[df['user'] == selected_user]
+
+    temp = df[df['user'] != 'group_notification']
+    temp = temp[temp['message'] != '<Media omitted>\n']
+
+    words = []
+
+    for message in temp['message']:
+        for word in message.lower().split():
+            if word not in stop_words:
+                words.append(word)
+
+    most_common_df = pd.DataFrame(Counter(words).most_common(20))
+
+    return most_common_df
+
+
+def emoji_helper(selected_user, df):
+    if selected_user != 'Overall':
+        df = df[df['user'] == selected_user]
+
+    emojis = []
+    for message in df['message']:
+        emojis.extend([c for c in message if c in EMOJI_SET])
+
+    emoji_df = pd.DataFrame(Counter(emojis).most_common(len(Counter(emojis))))
+
+    return emoji_df
+
+
+def sentiment_analysis(selected_user, df):
+    if selected_user != 'Overall':
+        df = df[df['user'] == selected_user]
+
+    sentiments = df['message'].apply(lambda x: TextBlob(x).sentiment.polarity)
     return sentiments
 
 
 def message_length_analysis(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     df['message_length'] = df['message'].apply(len)
@@ -137,22 +141,23 @@ def message_length_analysis(selected_user, df):
 
 
 def response_time_analysis(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
-    df['response_time_seconds'] = df['date'].diff().dt.total_seconds()
-    return df[['date', 'response_time_seconds']]
+    df['prev_date'] = df['date'].shift()
+    df['response_time_seconds'] = (df['date'] - df['prev_date']).dt.total_seconds()
+    return df
 
 
 def active_hours_analysis(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     return df['hour'].value_counts().sort_index()
 
 
 def media_types_shared_analysis(selected_user, df):
-    if selected_user != "Overall":
+    if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
     media_types = df[df['message'] == '<Media omitted>\n']['message'].value_counts()
