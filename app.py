@@ -1,5 +1,5 @@
 import streamlit as st
-import preprocessor, helper
+import preprocessor, utils
 import matplotlib.pyplot as plt
 import seaborn as sns
 from textblob import TextBlob
