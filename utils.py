@@ -3,6 +3,8 @@ from collections import Counter
 from wordcloud import WordCloud
 import emoji
 from urlextract import URLExtract
+from textblob import TextBlob
+
 
 # Extractor for URLs
 extract = URLExtract()
